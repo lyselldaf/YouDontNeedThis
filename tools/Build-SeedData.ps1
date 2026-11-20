@@ -15,10 +15,16 @@ param(
     [string]$SavedVariables,
 
     # Where to write; defaults to the addon's SeedData.lua.
-    [string]$OutFile = (Join-Path $PSScriptRoot '..\YouDontNeedThis\SeedData.lua')
+    [string]$OutFile
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Resolved here, not as the parameter default: Windows PowerShell 5.1 can leave $PSScriptRoot empty there.
+if (-not $OutFile) {
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $OutFile = Join-Path $scriptDir '..\YouDontNeedThis\SeedData.lua'
+}
 
 if (-not (Test-Path -LiteralPath $SavedVariables)) {
     throw "Saved variables file not found: $SavedVariables"
