@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: You Don't Need This
-## Notes: Flags quest items in your bags whose quests you've already completed.
+## Notes: Flags quest items you no longer need, and helps you clear out low-level quests.
 ## Author: Nick
 ## IconTexture: Interface\AddOns\YouDontNeedThis\icon.png
 ## Version: 0.6.0
