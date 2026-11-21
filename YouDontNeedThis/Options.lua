@@ -45,12 +45,30 @@ end
 
 local marksCheck = Check("marks", "Red X on items you don't need (bags and bank)", intro)
 local alertsCheck = Check("alerts", "Alerts: a summary after login, and a message when an item stops being needed", marksCheck)
+local nudgeCheck = Check("questNudge", "Tell me in chat when I have low-level quests (after login and on level-up)", alertsCheck)
+local onlyMoreCheck = Check("questNudgeOnlyMore", "At login, only when I have more low-level quests than last time", nudgeCheck)
+onlyMoreCheck:SetPoint("TOPLEFT", nudgeCheck, "BOTTOMLEFT", 20, -2) -- indented under the box it depends on
+nudgeCheck:HookScript("OnClick", function(self) onlyMoreCheck:SetEnabled(self:GetChecked()) end)
+
+-- Minimap button: stored as settings.minimap.hide, so this box is the inverse.
+local minimapCheck = Check("minimapShown", "Minimap button (click: low-level quests, right-click: settings)", onlyMoreCheck)
+minimapCheck:SetPoint("TOPLEFT", onlyMoreCheck, "BOTTOMLEFT", -20, -6)
+minimapCheck:SetScript("OnClick", function(self)
+    ns.DB().settings.minimap.hide = not self:GetChecked()
+    if ns.UpdateMinimapButton then ns.UpdateMinimapButton() end
+end)
 
 local listButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 listButton:SetSize(220, 24)
-listButton:SetPoint("TOPLEFT", alertsCheck, "BOTTOMLEFT", 2, -10)
+listButton:SetPoint("TOPLEFT", minimapCheck, "BOTTOMLEFT", 2, -10)
 listButton:SetText("List items I don't need in chat")
 listButton:SetScript("OnClick", function() ns.ListJunk() end)
+
+local questsButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+questsButton:SetSize(200, 24)
+questsButton:SetPoint("LEFT", listButton, "RIGHT", 8, 0)
+questsButton:SetText("Low-level quests...")
+questsButton:SetScript("OnClick", function() if ns.ToggleQuests then ns.ToggleQuests() end end)
 
 ------------------------------------------------------------------------
 -- Your verdicts (/ydnt ignore, /ydnt keep)
@@ -140,6 +158,8 @@ end
 local function RefreshPanel()
     local s = ns.DB().settings
     for _, cb in ipairs(checks) do cb:SetChecked(s[cb.key]) end
+    minimapCheck:SetChecked(not s.minimap.hide)
+    onlyMoreCheck:SetEnabled(s.questNudge)
     RefreshList()
 end
 
@@ -179,14 +199,20 @@ end
 ------------------------------------------------------------------------
 -- Addon compartment (the addons button by the minimap), named in the .toc
 ------------------------------------------------------------------------
-function YouDontNeedThis_OnAddonCompartmentClick()
-    ns.OpenOptions()
+-- Left-click: settings. Right-click: the low-level quests window.
+function YouDontNeedThis_OnAddonCompartmentClick(_, mouseButton)
+    if mouseButton == "RightButton" and ns.ToggleQuests then
+        ns.ToggleQuests()
+    else
+        ns.OpenOptions()
+    end
 end
 
 function YouDontNeedThis_OnAddonCompartmentEnter(_, button)
     GameTooltip:SetOwner(button or UIParent, "ANCHOR_LEFT")
     GameTooltip:AddLine(TITLE)
     GameTooltip:AddLine("Click to open the settings.", 1, 1, 1)
+    GameTooltip:AddLine("Right-click for low-level quests.", 1, 1, 1)
     GameTooltip:AddLine("/ydnt for commands.", 0.7, 0.7, 0.7)
     GameTooltip:Show()
 end

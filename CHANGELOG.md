@@ -3,6 +3,15 @@
 Newest version first. Each version gets a `## <version>` heading matching `## Version:` in the .toc;
 `tools/Build-Package.ps1` copies that section into `dist/` for pasting into CurseForge.
 
+## 0.6.0
+
+- **Clear out low-level quests.** A new window lists the grey quests in your quest log (or grey + green, or every quest a set number of levels below you), each with an Abandon button. Every abandon asks first. "Abandon all listed" skips quests that are ready to turn in, since those still pay out.
+- **Easy to open.** Use the new minimap button (drag it to move it), a key binding (Esc > Options > Keybindings > AddOns), the button on the quest log, `/ydnt quests`, or right-click You Don't Need This in the addons button by the minimap.
+- **Low-level quest reminders.** A chat line after login and when a level-up turns quests grey, with a clickable [Show]. Turn it off, or have the login reminder show only when the count goes up, in the settings.
+- **Abandoned quests no longer keep items "Still needed".** Items for a quest you abandoned get the red X, and the tooltip shows the quest as "(abandoned)". Picking the quest up again makes it count again.
+- **Update notice.** If someone in your guild or group runs a newer version of You Don't Need This, you get a one-line reminder in chat (and at each login until you update).
+- `/ydnt minimap` shows or hides the minimap button.
+
 ## 0.5.0
 
 - **Your bank is checked too.** Bank slots get the red X while the bank is open, `/ydnt list` includes items in your bank (as of your last visit), and the login summary counts them.

@@ -108,10 +108,16 @@ local function DB()
     YDNT_DB.learned = YDNT_DB.learned or {}   -- [itemID] = { [questID] = questTitle }
     YDNT_DB.titles  = YDNT_DB.titles  or {}   -- [questID] = questTitle
     YDNT_DB.bank    = YDNT_DB.bank    or {}   -- [itemID] = true, the bank as last seen
+    YDNT_DB.abandoned = YDNT_DB.abandoned or {} -- [questID] = true, quests this character abandoned
     YDNT_DB.settings = YDNT_DB.settings or {}
     local s = YDNT_DB.settings
     if s.marks == nil then s.marks = true end
     if s.alerts == nil then s.alerts = true end
+    if s.questRange == nil then s.questRange = "grey" end -- Quests.lua: "grey" | "green" | "levels"
+    if s.questLevels == nil then s.questLevels = 5 end
+    if s.questNudge == nil then s.questNudge = true end -- chat line at login / level-up
+    if s.questNudgeOnlyMore == nil then s.questNudgeOnlyMore = false end -- login: only if the count went up
+    s.minimap = s.minimap or {}                           -- Minimap.lua: { hide = bool, angle = degrees }
     return YDNT_DB
 end
 
@@ -184,6 +190,35 @@ local function IsUnavailable(qid)
     return hidden[qid] and not DB().titles[qid] and not IsOnQuest(qid)
 end
 
+-- Quests this character abandoned (from the quest log or the low-level window) won't be completed,
+-- so they stop keeping items needed. Picking the quest up again makes it count again.
+local function IsAbandoned(qid)
+    return DB().abandoned[qid] and not IsOnQuest(qid)
+end
+
+-- Record abandons: remember which quest SetAbandonQuest was called for, commit on AbandonQuest.
+-- Hooks work whoever calls them (Blizzard's quest log, Quests.lua, other addons).
+do
+    local pendingAbandon
+    local function Commit()
+        if pendingAbandon then DB().abandoned[pendingAbandon] = true end
+        pendingAbandon = nil
+    end
+    if C_QuestLog and C_QuestLog.SetAbandonQuest and C_QuestLog.AbandonQuest and C_QuestLog.GetSelectedQuest then
+        hooksecurefunc(C_QuestLog, "SetAbandonQuest", function()
+            pendingAbandon = C_QuestLog.GetSelectedQuest()
+        end)
+        hooksecurefunc(C_QuestLog, "AbandonQuest", Commit)
+    end
+    if SetAbandonQuest and AbandonQuest and GetQuestLogSelection and GetQuestLogTitle then
+        hooksecurefunc("SetAbandonQuest", function()
+            local index = GetQuestLogSelection()
+            pendingAbandon = index and index > 0 and select(8, GetQuestLogTitle(index)) or nil
+        end)
+        hooksecurefunc("AbandonQuest", Commit)
+    end
+end
+
 -- All quests we know an item is used for: { [questID] = true }
 local function QuestsForItem(itemID)
     local result, any = {}, false
@@ -221,7 +256,7 @@ local function ItemStatus(itemID)
     if not quests then return nil end
     local open = {}
     for qid in pairs(quests) do
-        if not IsQuestDone(qid) and not IsUnavailable(qid) then open[#open + 1] = qid end
+        if not IsQuestDone(qid) and not IsUnavailable(qid) and not IsAbandoned(qid) then open[#open + 1] = qid end
     end
     if #open == 0 and not IsQuestOnlyItem(itemID) then return false, open, "shared" end
     return #open == 0, open
@@ -263,7 +298,9 @@ local function DecorateTooltip(tooltip, itemID)
         local names, seen = {}, {}
         for qid in pairs(QuestsForItem(itemID)) do
             local name = QuestName(qid)
-            if not IsQuestDone(qid) then name = name .. " (unavailable)" end
+            if IsQuestDone(qid) then -- nothing to add
+            elseif IsAbandoned(qid) then name = name .. " (abandoned)"
+            else name = name .. " (unavailable)" end
             if not seen[name] then seen[name] = true; names[#names + 1] = name end
         end
         table.sort(names)
@@ -340,12 +377,13 @@ local function Why(arg)
         print(("  seed: %s [%d] races=%s classes=%s applies=%s done=%s inLog=%s unavailable=%s"):format(
             QuestName(qid), qid, tostring(q and q[2]), tostring(q and q[3]),
             tostring(QuestAppliesToPlayer(qid)), tostring(IsQuestDone(qid)), tostring(IsOnQuest(qid)),
-            tostring(not not IsUnavailable(qid))))
+            tostring(not not IsUnavailable(qid))) .. " abandoned=" .. tostring(not not IsAbandoned(qid)))
     end
     for qid in pairs(DB().learned[itemID] or {}) do
         any = true
-        print(("  learned: %s [%d] done=%s inLog=%s"):format(
-            QuestName(qid), qid, tostring(IsQuestDone(qid)), tostring(IsOnQuest(qid))))
+        print(("  learned: %s [%d] done=%s inLog=%s abandoned=%s"):format(
+            QuestName(qid), qid, tostring(IsQuestDone(qid)), tostring(IsOnQuest(qid)),
+            tostring(not not IsAbandoned(qid))))
     end
     if not any then print("  no quest links known for this item") end
 
@@ -387,8 +425,9 @@ local HELP = {
     "/ydnt ignore <item> - mark an item as not needed (e.g. its quest can't be done anymore)",
     "/ydnt keep <item> - never mark this item",
     "/ydnt clear <item> - undo ignore/keep",
+    "/ydnt quests - grey/green quests in your log, with an Abandon button for each",
     "/ydnt options - open the settings",
-    "/ydnt marks | alerts - toggle bag marks or alerts",
+    "/ydnt marks | alerts | minimap - toggle bag marks, alerts or the minimap button",
     "/ydnt scan | reset - rescan now, or clear learned data for this character",
 }
 
@@ -403,6 +442,14 @@ SlashCmdList.YOUDONTNEEDTHIS = function(msg)
         ListJunk()
     elseif cmd == "ignore" or cmd == "keep" or cmd == "clear" then
         OverrideCommand(cmd, rest)
+    elseif cmd == "quests" or cmd == "q" then
+        if ns.ToggleQuests then ns.ToggleQuests() end
+    elseif cmd == "minimap" then
+        local m = DB().settings.minimap
+        m.hide = not m.hide
+        if ns.UpdateMinimapButton then ns.UpdateMinimapButton() end
+        print(PREFIX .. "minimap button " .. (m.hide and "hidden." or "shown."))
+        if ns.OnOverridesChanged then ns.OnOverridesChanged() end
     elseif cmd == "options" or cmd == "config" or cmd == "settings" then
         if ns.OpenOptions then ns.OpenOptions() end
     elseif cmd == "scan" then

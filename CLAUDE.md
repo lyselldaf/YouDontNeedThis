@@ -19,7 +19,18 @@ every quest that uses them is already completed.
   - `Integrations.lua` — AdiBags (filter section + marks module via `AdiBags_UpdateButton`) and
     ArkInventory (`ArkInventory.API.ItemFrameUpdated` hook). APIs taken from their source; not yet verified in game.
   - `Options.lua` — canvas settings panel (Settings API, InterfaceOptions fallback), override list,
-    `ns.OpenOptions`, addon compartment entry.
+    `ns.OpenOptions`, addon compartment entry (left-click settings, right-click quest window).
+  - `Quests.lua` — low-level quest window (`ns.ToggleQuests`, `/ydnt quests`, button on `QuestLogFrame`):
+    grey / grey+green / N+-levels-below quests from the log with per-row Abandon (confirmed per quest) and a confirmed
+    "Abandon all" (`C_QuestLog.SetSelectedQuest/SetAbandonQuest/AbandonQuest`, else
+    `SelectQuestLogEntry/SetAbandonQuest/AbandonQuest`). Settings `.questRange`, `.questLevels`.
+    Also the key binding globals (binding in `Bindings.xml`, auto-loaded, packed explicitly by
+    Build-Package.ps1) and the login / level-up chat nudge (`.questNudge`) with a clickable
+    `|Haddon:YouDontNeedThis:quests|h` link via `EventRegistry` "SetItemRef" (plain text without it).
+  - `Minimap.lua` — library-free draggable minimap button; `.minimap = { hide, angle }`, `/ydnt minimap`.
+  - `Version.lua` — newer-version notice: announces `VER:<toc version>` on addon prefix `YDNT` (guild at login,
+    party/raid on joining), answers older senders, remembers the newest seen in `YDNT_Global.newestVersion`
+    and warns once per session (and at login until updated). Not yet verified in game.
   - `SeedData.lua` — GENERATED: `items[itemID] = {questID,...}`, `quests[questID] = {name, races, classes}`,
     `raceMask[raceID] = bit`, `hidden[questID] = true` (Questie's unobtainable quests), `meta` (source version, date).
   - `Export.lua` — dev-only `/ydnt export`: walks `LibQuestieDB` (QuestieDB addon, corrections applied)
@@ -45,13 +56,14 @@ branding (QuestieDB's license forbids that); crediting it is fine.
      `sourceItemId`, and items whose `startQuest` is the quest). Repeatable/daily/weekly quests are left
      out (they never stay completed). Seed quests whose race/class mask excludes the player are ignored.
 - An item is "not needed" only when every linked quest is completed (or unavailable: in the seed's
-  `hidden` and never seen in this character's quest log) AND it is quest-only (item class Quest, or
+  `hidden` and never seen in this character's quest log; or abandoned: in `YDNT_DB.abandoned`, recorded
+  by hooking `SetAbandonQuest`/`AbandonQuest`, and not currently in the log) AND it is quest-only (item class Quest, or
   bind type 4 "Quest Item"). Trade goods like Light Leather are never flagged; `ItemStatus` then
   returns `false, {}, "shared"`. Player overrides win over everything ("ignored" / "kept").
 - Bank: the default bank is -1 plus bank bags from `Enum.BagIndex.BankBag_1` (6 on Forever, which has a
   reagent bag at 5). Only readable while open, so its item IDs are cached in `YDNT_DB.bank`.
 - UI: bag/bank marks, alerts, tooltip line ("YDNT: <completed quest>" / "Still needed: <quest>"),
-  settings panel, plus `/ydnt list|why|ignore|keep|clear|options|marks|alerts|scan|reset|export`.
+  settings panel, plus `/ydnt list|why|ignore|keep|clear|quests|options|marks|alerts|scan|reset|export`.
 - Bag frames on Forever: `ContainerFrame1..13` and `ContainerFrameCombinedBags`; buttons via
   `frame:EnumerateValidItems()`, bag via `button:GetBagID()`. Hooks: `UpdateItems`,
   `ContainerFrame_Update`, `OnShow`. Bagnon: hook global `SetItemButtonTexture`, buttons with
@@ -74,6 +86,9 @@ branding (QuestieDB's license forbids that); crediting it is fine.
 - Verified in game: tooltip, seed data, `/ydnt why`, red marks in default bags, Bagnon and Baganator (v0.4.0),
   alerts. Not yet verified (v0.5.0): bank marks, settings panel, compartment entry, overrides, AdiBags,
   ArkInventory, and the `hidden` quests (needs a fresh `/ydnt export` with Questie enabled).
+  Verified in game (v0.6.0): low-level quest window and abandoning, key binding, nudges, minimap button.
+  Not yet verified (v0.6.0): per-quest abandon confirmation, abandoned-quest item status, "Abandon all"
+  skipping Ready quests, the login-nudge "only more" option, and the version check between two players.
 - Install: `C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\YouDontNeedThis` is a
   junction to this repo's addon folder. Questie + QuestieDB are installed there too.
 - Unobtainable quests: handled by the seed's `hidden` list (from Questie's blacklist) and by the

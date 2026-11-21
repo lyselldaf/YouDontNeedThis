@@ -43,7 +43,8 @@ $releaseToc = foreach ($line in $tocLines) {
     }
     $line
 }
-$files += 'LICENSE.md', 'CREDITS.md', 'icon.png'
+# Bindings.xml is loaded by the game on its own, so it isn't in the .toc.
+$files += 'Bindings.xml', 'LICENSE.md', 'CREDITS.md', 'icon.png'
 
 foreach ($f in $files) {
     if (-not (Test-Path -LiteralPath (Join-Path $addonDir $f))) { throw "Missing file listed for the package: $f" }
